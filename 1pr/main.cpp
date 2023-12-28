@@ -1,87 +1,96 @@
-#include <UnitTest++/UnitTest++.h>
 #include <iostream>
+#include <string>
+#include <UnitTest++/UnitTest++.h>
 #include "modAlphaCipher.h"
-#include <locale>
-#include <codecvt>
-
-
-using namespace std;
-string wst(int k, wstring s1)
-{
-    PerestanCipher w(k);
-    wstring s = w.CoderPerestanCipher(w, s1);
-    const string s2(s.begin(), s.end());
-    return s2;
-}
-string wst1(int k, wstring s1)
-{
-    PerestanCipher w(k);
-    wstring s = w.DecoderPerestanCipher(k, s1);
-    const string s2(s.begin(), s.end());
-    return s2;
-}
+struct fixture {
+    modAlphaCipher* p;
+    fixture()
+    {
+        p = new modAlphaCipher(L"Г");
+    }
+    ~fixture()
+    {
+        delete p;
+    }
+};
 SUITE(KeyTest)
 {
-    wstring test = L"PROGRAMMIROVANIE";
-    int k;
     TEST(ValidKey) {
-        CHECK_EQUAL(wst(k = 4, test), "PRIARARNOMOIGMVE");
+        CHECK(modAlphaCipher(L"Я").encrypt(L"ИБСТ") == L"ЗАРС");
     }
-    TEST(NegativeKey) {
-        CHECK_THROW(wst(k = -5, test), cipher_error);
+    TEST(LongKey) {
+        CHECK(modAlphaCipher(L"ЯСФИТЭ").encrypt(L"ИБСТ") == L"ЗТЁЫ");
     }
-    TEST(A_characters_in_the_key_instead_of_numbers) {
-        CHECK_THROW(wst(k = -6, test), cipher_error);
+    TEST(LowCaseKey) {
+        CHECK(modAlphaCipher(L"я").encrypt(L"ИБСТ") == L"ЗАРС");
     }
-}
+    TEST(DigitsInKey) {
+        CHECK_THROW(modAlphaCipher(L"ФИТЭ1"), cipher_error);
+    }
+    TEST(PunctuationInKey) {
+        CHECK_THROW(modAlphaCipher(L"Ф.И,Т;Э"), cipher_error);
+    }
+    TEST(WhitespaceInKey) {
+        CHECK_THROW(modAlphaCipher(L"И Б С Т"), cipher_error);
+    }
+    TEST(EmptyKey) {
+        CHECK_THROW(modAlphaCipher(L""), cipher_error);
+    }
+};
 SUITE(EncryptTest)
 {
-    TEST(ValidText) {
-        CHECK_EQUAL(wst(4, L"PROGRAMMIROVANIE"), "PRIARARNOMOIGMVE");
+    TEST_FIXTURE(fixture, UpCaseString) {
+        CHECK(L"ЖЕГЖЩГХЯЖЕГ" == p->encrypt(L"ДВАДЦАТЬДВА"));
     }
-    TEST(LowText) {
-        CHECK_EQUAL(wst(4, L"PRograMmiroVANie"), "PRIARARNOMOIGMVE");
+    TEST_FIXTURE(fixture, LowCaseString) {
+        CHECK(L"ЖЕГЖЩГХЯЖЕГ" == p->encrypt(L"двадцатьдва"));
     }
-    TEST(SpaceText) {
-        CHECK_EQUAL(wst(4, L"PROGRAM MIROVANIE"), "PRIARARNOMOIGMVE");
+    TEST_FIXTURE(fixture, WhitSpace) {
+        CHECK(L"ЖЕГЖЩГХЯЖЕГ" == p->encrypt(L"ДВАДЦАТЬ ДВА"));
     }
-    TEST(EmptyText) {
-        CHECK_THROW(wst(4, L" "), cipher_error);
+    TEST_FIXTURE(fixture, Numbers) {
+        CHECK(L"ТЛ" == p->encrypt(L"22ПИ2"));
     }
-    TEST(ValiDTextWithoutletters) {
-        CHECK_THROW(wst(4, L"!*><?/,.123"), cipher_error);
+    TEST_FIXTURE(fixture, Empty) {
+        CHECK_THROW(p->encrypt(L""), cipher_error);
     }
-    TEST(TextWithNumber) {
-        CHECK_EQUAL(wst(4, L"PRograM123miroVANie"), "PRIARARNOMOIGMVE");
+    TEST_FIXTURE(fixture, NoAlpha) {
+        CHECK_THROW(p->encrypt(L"23445567"), cipher_error);
     }
-    TEST(TextWithSpaceAndPunct) {
-        CHECK_EQUAL(wst(6, L"The programmer walks!"), "TGRHRWEAAPMLRMKOES");
+    TEST(MaxShiftKey) {
+        CHECK(L"ГБЯГХЯСЫГБЯОЗЮ" == modAlphaCipher(L"Я").encrypt(L"ДВАДЦАТЬДВАПИЯ"));
     }
-}
-SUITE(DecryptText)
+};
+SUITE(DecryptTest)
 {
-    TEST(ValidTEXT) {
-        CHECK_EQUAL(wst1(4, L"PRIARARNOMOIGMVE"), "PROGRAMMIROVANIE");
+    TEST_FIXTURE(fixture, UpCaseString) {
+        CHECK(L"ДВАДЦАТЬДВАПИ" == p->decrypt(L"ЖЕГЖЩГХЯЖЕГТЛ"));
     }
-    TEST(LowTEXT) {
-        CHECK_EQUAL(wst1(4, L"PriaRARNomoIGMve"), "PROGRAMMIROVANIE");
+    TEST_FIXTURE(fixture, LowCaseString) {
+        CHECK_THROW(p->decrypt(L"жегжщгхяжегтл"), cipher_error);
     }
-    TEST(SpaceTEXT) {
-        CHECK_EQUAL(wst1(4, L"PRIARARN OMOIGMVE"), "PROGRAMMIROVANIE");
+    TEST_FIXTURE(fixture, WhitSpace) {
+        CHECK_THROW(p->decrypt(L"ДВАДЦАТЬ ДВА ПИ"), cipher_error);
     }
-    TEST(EmptyTEXT) {
-        CHECK_THROW(wst1(4, L" "), cipher_error);
+    TEST_FIXTURE(fixture, Digit) {
+        CHECK_THROW(p->decrypt(L"22ПИ2"), cipher_error);
     }
-    TEST(TextNumberText) {
-        CHECK_EQUAL(wst1(4, L"PRIARARN123OMOIGMVE"), "PROGRAMMIROVANIE");
+    TEST_FIXTURE(fixture, Punct) {
+        CHECK_THROW(p->decrypt(L"Ф.И,Т;Э"), cipher_error);
     }
-    TEST(TextSymbolText) {
-        CHECK_EQUAL(wst1(4, L"PRIARARN!!!OMOIGMVE"), "PROGRAMMIROVANIE");
+    TEST_FIXTURE(fixture, Empty) {
+        CHECK_THROW(p->decrypt(L""), cipher_error);
     }
-
-}
-
+    TEST_FIXTURE(fixture, NoAlpha) {
+        CHECK_THROW(p->decrypt(L"23445567"), cipher_error);
+    }
+    TEST(MaxShiftKey) {
+        CHECK(L"ДВАДЦАТЬДВАПИЯ" == modAlphaCipher(L"Я").decrypt(L"ГБЯГХЯСЫГБЯОЗЮ"));
+    }
+};
 int main()
 {
+    std::locale loc("ru_RU.UTF-8");
+    std::locale::global(loc);
     return UnitTest::RunAllTests();
 }
